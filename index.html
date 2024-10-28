@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wisconsin Education Level Map</title>
+    <title>Educational Attainment</title>
     
     <!-- MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -12,6 +12,7 @@
         body {
             margin: 0;
             padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
         }
         
         #map-container {
@@ -173,6 +174,36 @@
             border-radius: 4px;
             border: 1px solid #ccc;
         }
+
+        .info-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .info-box a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        .info-box .control-tip {
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .info-box a:hover {
+            color: #0d47a1;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body></body>
@@ -184,7 +215,7 @@
         <div class="switch-container">
             <span class="switch-label">Flat</span>
             <label class="switch">
-                <input type="checkbox" id="mode-switch">
+                <input type="checkbox" id="mode-switch" checked>
                 <span class="slider round"></span>
             </label>
             <span class="switch-label">3D</span>
@@ -258,6 +289,16 @@
             <option value="WY">Wyoming</option>
             <option value="DC">District of Columbia</option>
         </select>
+    </div>
+
+    <div class="info-box">
+        <span style="display: block; margin-top: 2px;">
+            Hold Ctrl/Cmd + Pan to change viewing angle in 3D mode
+        </span>
+        <span style="display: block; margin-top: 2px; font-size: 80%;">
+            Data from US Census Bureau. 
+            See <a href="https://github.com/educationmap/educationmap.github.io/" target="_blank">source code</a> for more info.
+        </span>
     </div>
 
     <!-- Load dependencies -->

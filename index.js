@@ -1,5 +1,8 @@
 let CENSUS_API_KEY = 'abe2dd4b6a1413df8b5f0584d640d2f2c9b4f497';
 
+// Add this with the other constants
+const GROUND_PLANE = [[[-180, -90], [-180, 90], [180, 90], [180, -90]]];
+
 let CATEGORY_COLORS = {
     'Less than High School': [220, 50, 32],     // Red
     'High School Graduate': [254, 178, 76],    // Orange
@@ -133,9 +136,8 @@ function getHeight(properties) {
     let totalPopulation = categoryData['B15003_001E'] || 0;
     let population_density = totalPopulation / properties.ALAND;
     
-    // Scale height differently for counties vs tracts
     let heightMultiplier = currentState === 'US' ? 10000000 : 1000000;
-    return currentMode === '3d' ? Math.sqrt(population_density) * heightMultiplier : 0;
+    return currentMode === '3d' ? Math.sqrt(population_density) * heightMultiplier : 0
 }
 
 async function loadData() {
@@ -209,17 +211,16 @@ async function loadData() {
     }
 }
 
-// Update the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', async () => {
     let INITIAL_VIEW_STATE = {
-        latitude: 39.8283,  // Center of CONUS
+        latitude: 39.8283,
         longitude: -98.5795,
         zoom: 3,
         pitch: 0,
         bearing: 0
     };
 
-    map = new maplibregl.Map({  // Remove 'let' here
+    map = new maplibregl.Map({
         container: 'map-container',
         style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
         center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
@@ -229,11 +230,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         interactive: false
     });
 
+    const ambientLight = new deck.AmbientLight({
+        color: [255, 255, 255],
+        intensity: 1.0
+    });
+
+    const dirLight = new deck._SunLight({
+        timestamp: Date.UTC(2023, 7, 1, 22),
+        color: [255, 255, 255],
+        intensity: 1.0,
+        _shadow: true
+    });
+
+    const lightingEffect = new deck.LightingEffect({ambientLight, dirLight});
+    lightingEffect.shadowColor = [0, 0, 0, 0.15];
+
+    const GROUND_PLANE = [[[-180, -90], [-180, 90], [180, 90], [180, -90]]];
+
     deckgl = new deck.DeckGL({
         container: 'map-container',
         mapStyle: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
         initialViewState: INITIAL_VIEW_STATE,
         controller: true,
+        effects: [lightingEffect],
         onViewStateChange: ({viewState}) => {
             map.jumpTo({
                 center: [viewState.longitude, viewState.latitude],
@@ -248,16 +267,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadData();
         setupEventListeners();
         
-        // Calculate bounds for the initial state data
         const bounds = getBoundsForState(tractData);
-        
-        // Calculate center point
         const center = [
             (bounds[0][0] + bounds[1][0]) / 2,
             (bounds[0][1] + bounds[1][1]) / 2
         ];
         
-        // Calculate appropriate zoom level
         const latDiff = bounds[1][1] - bounds[0][1];
         const lngDiff = bounds[1][0] - bounds[0][0];
         const maxDiff = Math.max(latDiff, lngDiff);
@@ -267,7 +282,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             zoom = 3;
         }
         
-        // Update both deck.gl and maplibre views
         const newViewState = {
             longitude: center[0],
             latitude: center[1],
@@ -280,7 +294,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             initialViewState: newViewState
         });
         
-        // Update the base map
         map.jumpTo({
             center: center,
             zoom: zoom,
@@ -303,7 +316,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function createLegend() {
-    // Remove existing legend if it exists
     let existingLegend = document.querySelector('.map-legend');
     if (existingLegend) {
         existingLegend.remove();
@@ -333,7 +345,6 @@ function createLegend() {
             legend.appendChild(item);
         });
     } else {
-        // Create a gradient legend for percentage-based views
         let gradientBox = document.createElement('div');
         gradientBox.style.cssText = `
             width: 20px;
@@ -389,6 +400,14 @@ function setupEventListeners() {
 function updateLayers() {
     deckgl.setProps({
         layers: [
+            // Ground plane for shadows
+            new deck.PolygonLayer({
+                id: 'ground-plane',
+                data: GROUND_PLANE,
+                stroked: false,
+                getPolygon: f => f,
+                getFillColor: [0, 0, 0, 0]
+            }),
             new deck.GeoJsonLayer({
                 id: 'tracts',
                 data: tractData,
@@ -400,6 +419,12 @@ function updateLayers() {
                 getLineColor: [0, 0, 0, 255],
                 getLineWidth: 1,
                 getFillColor: d => getChoroplethColor(d.properties),
+                material: {
+                    ambient: 0.35,
+                    diffuse: 0.6,
+                    shininess: 32,
+                    specularColor: [30, 30, 30]
+                },
                 updateTriggers: {
                     getFillColor: currentCategory
                 }
@@ -413,7 +438,7 @@ function getChoroplethColor(properties) {
     let categoryData = tractDataMap.get(tractId);
 
     if (!categoryData) {
-        return [200, 200, 200, 102]; // 0.4 * 255 = 102 for base opacity
+        return [200, 200, 200, 102];
     }
 
     let currentCategory = document.getElementById('category-select').value;
@@ -423,14 +448,14 @@ function getChoroplethColor(properties) {
         , {category: null, population: -1});
 
         let color = maxCategory.category ? CATEGORY_COLORS[maxCategory.category] : [200, 200, 200];
-        return [...color, 255]; // 100% opacity
+        return [...color, 175];
     } 
     else if (currentCategory === 'bachelors-plus') {
         let totalPopulation = categoryData['B15003_001E'];
         let bachelorsPlus = (categoryData['Bachelors Degree'] || 0) + (categoryData['Advanced Degree'] || 0);
         let percentage = bachelorsPlus / totalPopulation;
         let color = interpolatePercentageColor(percentage);
-        let opacity = Math.round((0.4 + (percentage * 0.6)) * 255); // Now ranges from 0.4 to 1.0
+        let opacity = Math.round((0.4 + (percentage * 0.6)) * 255);
         return [...color, opacity];
     }
     else {
@@ -438,13 +463,12 @@ function getChoroplethColor(properties) {
         let categoryPopulation = categoryData[currentCategory] || 0;
         let percentage = categoryPopulation / totalPopulation;
         let color = interpolatePercentageColor(percentage);
-        let opacity = Math.round((0.4 + (percentage * 0.6)) * 255); // Now ranges from 0.4 to 1.0
+        let opacity = Math.round((0.4 + (percentage * 0.6)) * 255);
         return [...color, opacity];
     }
 }
 
 function interpolatePercentageColor(percentage) {
-    // Use a blue scale for percentages
     const lowColor = [240, 240, 255];  // Very light blue
     const highColor = [0, 0, 255];     // Deep blue
     
@@ -473,13 +497,11 @@ function getBoundsForState(geojsonData) {
     let bounds = [[Infinity, Infinity], [-Infinity, -Infinity]];
     
     geojsonData.features.forEach(feature => {
-        // handle Alaska
+        // We have to pretend Alaska ends just before the antimeridian to avoid the bounding box being the whole earth's longitude range
         if (feature.properties.STATEFP === '02') {
-            // pretend it ends just before the antimeridian:-179.9,-130.0,51.2,71.4
             bounds = [[-130.0, 71.4], [-179.9, 51.2]];
             return;
         }
-        // Handle both Polygon and MultiPolygon types
         else if (feature.geometry.type === 'MultiPolygon') {
             // MultiPolygon: array of polygon arrays
             feature.geometry.coordinates.forEach(polygon => {
@@ -504,10 +526,6 @@ function getBoundsForState(geojsonData) {
         }
     });
 
-    // Add debug logging
-    console.log('Calculated bounds:', bounds);
-    
-    // Validate bounds
     if (bounds.some(pair => pair.some(num => !isFinite(num)))) {
         console.error('Invalid bounds detected:', bounds);
         throw new Error('Failed to calculate valid bounds');
