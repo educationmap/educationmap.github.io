@@ -1,6 +1,5 @@
 let CENSUS_API_KEY = 'abe2dd4b6a1413df8b5f0584d640d2f2c9b4f497';
 
-// Add this with the other constants
 const GROUND_PLANE = [[[-180, -90], [-180, 90], [180, 90], [180, -90]]];
 
 let CATEGORY_COLORS = {
@@ -33,9 +32,8 @@ let deckgl;
 let currentCategory = document.getElementById('category-select').value;
 let currentMode = document.getElementById('mode-switch').checked ? '3d' : 'flat';
 let tractData;
-let map; // Add this with other global variables at the top
+let map; 
 
-// Replace the WISCONSIN_FIPS constant with:
 const STATE_FIPS = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 'CT': '09',
     'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18',
@@ -51,14 +49,12 @@ let currentState = document.getElementById('state-select').value;
 console.log('currentState is now:', currentState);
 let currentStateFips = STATE_FIPS[currentState];
 
-// Add event listener for state changes
 document.getElementById('state-select').addEventListener('change', async (e) => {
     currentState = e.target.value;
     currentStateFips = STATE_FIPS[currentState];
     document.getElementById('loading').style.display = 'block';
     await loadData();
     
-    // Calculate bounds for the new state data
     const bounds = getBoundsForState(tractData);
     
     // Calculate center point
@@ -76,7 +72,6 @@ document.getElementById('state-select').addEventListener('change', async (e) => 
         zoom = 3;
     }
     
-    // Update both deck.gl and maplibre views
     const newViewState = {
         longitude: center[0],
         latitude: center[1],
@@ -242,6 +237,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         pitch: 0,
         bearing: 0
     };
+
+    document.getElementById('state-name').textContent = stateNames[currentState];
 
     map = new maplibregl.Map({
         container: 'map-container',
