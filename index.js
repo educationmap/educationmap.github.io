@@ -133,11 +133,34 @@ function getHeight(properties) {
     if (!categoryData) {
         return 0;
     }
-    let totalPopulation = categoryData['B15003_001E'] || 0;
-    let population_density = totalPopulation / properties.ALAND;
-    
+
     let heightMultiplier = currentState === 'US' ? 10000000 : 1000000;
-    return currentMode === '3d' ? Math.sqrt(population_density) * heightMultiplier : 0
+ 
+    if (currentCategory === 'most-common') {
+        // Find the category with the highest population
+        let maxCategory = Object.entries(categoryData)
+            .filter(([category]) => category !== 'B15003_001E')
+            .reduce((max, [category, population]) => {
+                if (population > max.population) {
+                    return {category, population};
+                }
+                return max;
+            }, {category: null, population: -1});
+
+        let category_density = maxCategory.population / properties.ALAND;
+        return currentMode === '3d' ? Math.sqrt(category_density) * heightMultiplier : 0;
+    } 
+    else if (currentCategory === 'bachelors-plus') {
+        let category_total = (categoryData['Bachelors Degree'] || 0) + (categoryData['Advanced Degree'] || 0);
+        let category_density = category_total / properties.ALAND;
+        return currentMode === '3d' ? Math.sqrt(category_density) * heightMultiplier : 0;
+    }
+    else {
+        let currentCategory = document.getElementById('category-select').value;
+        let categoryPopulation = categoryData[currentCategory] || 0;
+        let category_density = categoryPopulation / properties.ALAND;
+        return currentMode === '3d' ? Math.sqrt(category_density) * heightMultiplier : 0;
+    }
 }
 
 async function loadData() {
@@ -383,18 +406,39 @@ function createLegend() {
 function setupEventListeners() {
     let modeSwitch = document.getElementById('mode-switch');
     let categorySelect = document.getElementById('category-select');
+    let infoBoxText = document.getElementById('info-box-text');
+
+    function updateInfoBoxText() {
+        if (currentCategory === 'most-common') {
+            if (currentMode === '3d') {
+                infoBoxText.textContent = "Color is determined by most common level of educational attainment, size is determined by number of people in that category. Hold Ctrl/Cmd + click and drag to change viewing angle.";
+            } else {
+                infoBoxText.textContent = "Color is determined by most common level of educational attainment, opacity is determined by percentage of tract in that category";
+            }
+        } else {
+            if (currentMode === '3d') {
+                infoBoxText.textContent = "Color is determined by percentage of tract residents in category, size is determined by number of people in that category. Hold Ctrl/Cmd + click and drag to change viewing angle.";
+            } else {
+                infoBoxText.textContent = "Color is determined by percentage of tract residents in category";
+            }
+        }
+    }
 
     modeSwitch.addEventListener('change', (e) => {
         currentMode = e.target.checked ? '3d' : 'flat';
         updateLayers();
+        updateInfoBoxText();
     });
     
     categorySelect.addEventListener('change', (e) => {
         currentCategory = e.target.value;
-        console.log('current is now:', currentCategory);
         updateLayers();
         createLegend();
+        updateInfoBoxText();
     });
+
+    // Set initial text
+    updateInfoBoxText();
 }
 
 function updateLayers() {
@@ -426,7 +470,8 @@ function updateLayers() {
                     specularColor: [30, 30, 30]
                 },
                 updateTriggers: {
-                    getFillColor: currentCategory
+                    getFillColor: currentCategory,
+                    getElevation: currentCategory,
                 }
             })
         ]
@@ -438,33 +483,39 @@ function getChoroplethColor(properties) {
     let categoryData = tractDataMap.get(tractId);
 
     if (!categoryData) {
-        return [200, 200, 200, 102];
+        return [200, 200, 200, 175];
     }
 
     let currentCategory = document.getElementById('category-select').value;
     if (currentCategory === 'most-common') {
-        let maxCategory = Object.entries(categoryData).reduce((max, [category, population]) => 
-            category !== 'B15003_001E' && population > max.population ? {category, population} : max
-        , {category: null, population: -1});
+        // Find the category with the highest population and its percentage
+        let totalPopulation = categoryData['B15003_001E'];
+        let maxCategory = Object.entries(categoryData).reduce((max, [category, population]) => {
+            if (category !== 'B15003_001E' && population > max.population) {
+                return {category, population};
+            }
+            return max;
+        }, {category: null, population: -1});
 
         let color = maxCategory.category ? CATEGORY_COLORS[maxCategory.category] : [200, 200, 200];
-        return [...color, 175];
+        // Calculate opacity based on percentage (0.2 to 1.0 range, scaled to 50-255 for alpha)
+        let percentage = maxCategory.population / totalPopulation;
+        let alpha = Math.floor(50 + (percentage * 205)); // Maps 0-100% to 50-255 alpha range
+        return [...color, alpha];
     } 
     else if (currentCategory === 'bachelors-plus') {
         let totalPopulation = categoryData['B15003_001E'];
         let bachelorsPlus = (categoryData['Bachelors Degree'] || 0) + (categoryData['Advanced Degree'] || 0);
         let percentage = bachelorsPlus / totalPopulation;
         let color = interpolatePercentageColor(percentage);
-        let opacity = Math.round((0.4 + (percentage * 0.6)) * 255);
-        return [...color, opacity];
+        return [...color, 175];
     }
     else {
         let totalPopulation = categoryData['B15003_001E'];
         let categoryPopulation = categoryData[currentCategory] || 0;
         let percentage = categoryPopulation / totalPopulation;
         let color = interpolatePercentageColor(percentage);
-        let opacity = Math.round((0.4 + (percentage * 0.6)) * 255);
-        return [...color, opacity];
+        return [...color, 175];
     }
 }
 
